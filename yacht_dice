@@ -1,0 +1,398 @@
+.data #Here we put everything that we’re going to use regarding bytes for the array elements of the die and ascii messages in .data
+
+Intro: .asciiz "Welcome to the Mini Yacht Dice game. Get ready to begin\n"
+Space: .asciiz "\n"
+PlayerIntro: .asciiz "Hey player,your dice are being rolled. Remember to pick at least 3 or you will NOT get that many points.  Your values are \n"
+RollMessage: .asciiz "rolling dice...\n"
+DieOne: .asciiz "\nWould you like to keep Die 1? Press yes (1) or no (0)\n"
+DieTwo: .asciiz "\nWould you like to keep Die 2? Press yes (1) or no (0)\n"
+DieThree: .asciiz "\nWould you like to keep Die 3? Press yes (1) or no (0)\n"
+CalculateScore: .asciiz "\nCalculating your score choices.....\n"
+AcesScore: .asciiz "\n1.Aces (Adds 3 die for a value 1-3):"
+DeucesScore: .asciiz "\n2.Deuces (Adds 3 die for a value 2,4, or 6):"
+ThreesScore: .asciiz "\n3.Threes (Adds 3 die for a value 3, 6, or 9):"
+FoursScore: .asciiz "\n4.Fours (Adds 3 die for a value 4, 8, or 12):"
+ChoiceScore: .asciiz "\n5.Choice (adds all values regardless, only available for the first 6 turns):"
+ScoreChoice: .asciiz "These are your Final Scores. Choose the score which you would like to keep (type the number each score is labeled).\n"
+TurnEnd: .asciiz "This Player's turn has ended.  Onto the other player.\n"
+IntroFinalScore: .asciiz "Final Results! Bonus of 50 points to players who passed 50 points!\nPlayer 1:"
+FinalScoreFinale: .asciiz "\nPlayer 2:"
+GameOver: .asciiz "\n Thank you for Playing!\n"
+ErrorMessage: .asciiz "Not a valid input, please try again\n"
+
+
+
+.text
+YachtDice:
+li $v0, 4 
+la $a0, Intro
+syscall
+
+li $s0, 0 #These instructions are in here just in case of issues with the $s registers since there may have been issues with prior tests
+li $s6, 0
+
+rollDiceIntro:
+la $a0, PlayerIntro
+syscall
+
+rollDice: #section of code we roll our die (3 random values between 0-4) 
+li $v0, 4
+la $a0, RollMessage
+syscall
+
+#lines 41-64 are not my own lines of code, I'm using them in place of an LFSR I was working on (will try to turn in for extra credit).  The source for this code is below
+# source for RNG line of code: https://stackoverflow.com/questions/30429097/generate-random-number-on-mips/40457147
+li $a1, 5  
+li $v0, 42  #generates the random number.
+syscall
+
+add $t2, $a1, 1 #lowest possible value for die (exception of 0)
+li $v0, 1   #1 print integer
+syscall #LFSR or RNG code will go here, I have an RNG code from another website that I might use.  If so, I will cite it in here
+
+la $t1, 0($a0)
+li $v0, 42  
+syscall
+
+li $v0, 1   
+syscall 
+
+la $t3, 0($a0)
+li $v0, 42  
+syscall
+
+li $v0, 1   
+syscall 
+
+la $t4, 0($a0)
+j UserPrompt
+#The end of any cited code, from here the rest was made by me
+
+Error:
+li $v0, 4
+la $a0, ErrorMessage
+syscall
+
+UserPrompt: #section of the code where user will be asked for input to keep a die result or not.  If it is kept (say yes), it will be stored in an array, each die has 
+li $v0, 4 #its own section
+la $a0, DieOne
+syscall
+
+li $v0, 5 #prompt user for input
+syscall
+
+la $s0, 0($v0) #If the user inputs 1 (as instructed by the program), that one is stored and activates this branch condition that stores the Die
+bgt $s0, 1, Error
+beq $s0, 1, KeepDieOne
+
+UserPromptTwo:
+li $v0, 4
+la $a0, DieTwo
+syscall
+
+li $v0, 5
+syscall
+
+la $s1, 0($v0)
+bgt $s1, 1, Error
+beq $s1, 1, KeepDieTwo
+
+UserPromptThree:
+li $v0,  4
+la $a0, DieThree
+syscall
+
+li $v0, 5
+syscall 
+
+la $s2, 0($v0)
+bgt $s2, 1, Error
+beq $s2, 1, KeepDieThree
+
+Counter: #counter for the amount of times the dice is rolled #condition that amount of times dice (the counter) is rolled is equal to three
+addi $t8, $t8, 1 #condition that amount of times dice (the counter) is rolled is equal to two
+bne $t8, 2, rollDice   #we set a condition in which if the branch is not equal to two we loop back for new die rolls, otherwise we continue to the calculations
+beq $t8, 2, Calculations 
+
+KeepDieOne: #area to store these values, make sure to replace previous die value in order for this to work 
+la $t5, ($t1)
+j UserPromptTwo
+
+KeepDieTwo: #area to store these values, make sure to replace previous die value in order for this to work 
+la $t6, ($t3)
+j UserPromptThree
+
+KeepDieThree: #area to store these values, make sure to replace previous die value in order for this to work 
+la $t7, ($t4)
+j Counter
+
+Calculations: #section of the code where most of the different types of calculations are implemented (choice and exponent are exceptions)
+li $v0, 4
+la $a0, CalculateScore
+syscall
+
+NoAces: #This section will set the conditions to go to print a value in Aces calculation.  Otherwise we print a zero if the conditions are not met
+la $a0, AcesScore
+syscall
+
+add $t0, $t5, $t6 #add registers together and if 1-3 are the value, we get to calculate "Aces" (this will also calculate if the values equal an Aces value).
+add $t0, $t0, $t7
+beq $t0, 1, Aces
+beq $t0, 2, Aces
+beq $t0, 3, Aces
+
+li $v0, 1 #print zero since conditions were not met
+move $a0, $zero
+syscall
+
+li $v0, 4 #print space to organize the program
+la $a0, Space
+syscall
+
+j NoDeuces # every time we complete a "No" branch instead of the Aces calculation, we go to the next "No" section which will follow the same idea as No Aces
+
+Aces: #aces branch takes the value that matches the ace conditions and prints it out
+li $v0,1
+move $a0,$t0
+syscall
+
+li $v0, 4
+la $a0, Space
+syscall
+
+NoDeuces: #same as NoAces
+la $a0, DeucesScore
+syscall
+
+add $t1, $t5, $t6 #notice how the conditional values change depending on what score type it is
+add $t1, $t1, $t7
+beq $t1, 2, Deuces
+beq $t1, 4, Deuces
+beq $t1, 6, Deuces
+
+li $v0, 1
+move $a0, $zero
+syscall
+
+li $v0, 4
+la $a0, Space
+syscall
+
+j NoThrees
+
+Deuces:
+li $v0,1
+move $a0,$t1
+syscall
+
+li $v0, 4
+la $a0, Space
+syscall
+
+NoThrees:
+la $a0, ThreesScore
+syscall
+
+li $t2, 0
+add $t2, $t5, $t6 
+add $t2, $t6, $t7
+beq $t2, 3, Threes 
+beq $t2, 6, Threes 
+beq $t2, 9, Threes
+
+li $v0, 1
+move $a0, $zero
+syscall
+
+li $v0, 4
+la $a0, Space
+syscall
+
+j NoFours
+
+Threes:
+li $v0,1
+move $a0,$t2
+syscall
+
+li $v0, 4
+la $a0, Space
+syscall
+
+NoFours: #This is the only exception to the rule we've established so far, instead we will jump to a counter for Choice and exponent since they don't appear the entire game
+li $v0, 4
+la $a0, FoursScore
+syscall
+
+add $t3, $t5, $t6 
+add $t3, $t3, $t7
+beq $t3, 4, Fours
+beq $t3, 8, Fours
+beq $t3, 12, Fours
+
+li $v0, 1
+move $a0, $zero 
+syscall
+
+li $v0, 4
+la $a0, Space
+syscall
+
+j EarlyGameCounter #jumping to the counter for Choice and exponent
+
+Fours:
+li $v0,1
+move $a0,$t3
+syscall
+
+li $v0, 4
+la $a0, Space
+syscall
+
+j EarlyGameCounter #this is in here to prevent automatically going to ChooseScore
+
+ErrorTwo: #new code added to try an prevent a user from using any other number not listed in score type number labels
+li $v0, 4 #This would print the error message
+la $a0, ErrorMessage
+syscall
+
+sub $s5, $s5, 1 #new code added to try an prevent a user from using any other number not listed in score type number labels
+
+ChooseScore: #*user inputs the number corresponding to the score they want
+la $a0, ScoreChoice
+syscall
+
+li $v0, 5
+syscall 
+
+la $s0, ($v0)
+addi $s5, $s5, 1 #keeping adding so this register so that we keep track of which player's turn it is (player 1 or player 2)
+addi $a0, $zero, 2 #We make this two so we can divde by it to get either an even or odd number
+div $s5, $a0 
+mfhi $a0         #We keep the remainder of this division in $a0 for branch conditions
+beq $a0, $zero, PlayerTwo #if the remainder is zero, we are storing the value for Player 2
+j PlayerOne #Otherwise we are keeping it for Player One
+
+EarlyGameCounter: #The counter for the score types which will not be around the entire game
+addi $s6, $s6, 1
+bge $s6, 4, ChooseScore
+blt $s6, 4, Choice
+
+Choice: #Choice option which adds the values and prints the value regardless of anything (there is no rule, just add all values together).  This is here to make the game easy
+li $v0, 4 #in the early game, but is removed in the second half in order to make the game more skill based
+la $a0, ChoiceScore
+syscall
+
+add $t4, $t5, $t6 
+add $t4, $t4, $t7
+
+li $v0,1 #print the choice value
+move $a0,$t4
+syscall
+
+li $v0, 4
+la $a0, Space
+syscall 
+
+j ChooseScore #we loop back up in the code to ChooseScore for the player to choose the calculated score type they want to keep
+
+PlayerOne: #This section is for checking what score type player 1 wants to keep for the current turn
+blt $s0, 1, ErrorTwo #new code added to try an prevent a user from using any other number not listed in score type number labels
+bgt $s0, 5, ErrorTwo #new code added to try an prevent a user from using any other number not listed in score type number labels
+beq $s0, 1, ScoreAceOne
+beq $s0, 2, ScoreDeuceOne
+beq $s0, 3, ScoreThreeOne
+beq $s0, 4, ScoreFourOne
+beq $s0, 5, ChoiceGivenOne
+
+
+PlayerTwo: #This section is for checking what score type player 1 wants to keep for the current turn
+blt $s0, 1, ErrorTwo
+bgt $s0, 5, ErrorTwo
+beq $s0, 1, ScoreAceTwo
+beq $s0, 2, ScoreDeuceTwo
+beq $s0, 3, ScoreThreeTwo
+beq $s0, 4, ScoreFourTwo
+beq $s0, 5, ChoiceGivenTwo
+
+ScoreAceOne: #these small sections here add the chosen value into two registers that will keep track of how many points each player has accumulated
+add $s3, $s3, $t0
+j EndofTurn
+ScoreAceTwo:
+add $s4, $s4, $t0
+j EndofTurn
+ScoreDeuceOne:
+add $s3, $s3, $t1
+j EndofTurn
+ScoreDeuceTwo:
+add $s4, $s4, $t1
+j EndofTurn
+ScoreThreeOne:
+add $s3, $s3, $t2
+j EndofTurn
+ScoreThreeTwo:
+add $s4, $s4, $t2
+j EndofTurn
+ScoreFourOne:
+add $s3, $s3, $t3
+j EndofTurn
+ScoreFourTwo:
+add $s4, $s4, $t3
+j EndofTurn
+ChoiceGivenOne:
+add $s3, $s3, $t4
+j EndofTurn
+ChoiceGivenTwo:
+add $s4, $s4, $t4
+
+EndofTurn: #This section of code is intended to indicate to the player that the turn has ended and reset the registers users for keeping track of values to zero
+addi $t9, $t9, 1 #counter saving the amount of turns
+beq $t9, 10, FinalScore #when we reach turn 10 we jump to FinalScore,otherwise jump back to rollDice
+
+li $v0, 4
+la $a0, TurnEnd
+syscall
+
+li $t8, 0 #reset counter for die rolls on rollDice
+
+li $t5, 0 #reset registers for use in next die roll
+li $t6, 0
+li $t7, 0
+
+j rollDiceIntro
+
+FinalScore: #This section of code will indicate to the player the game has ended and the final scores are being calculated (bonus points are awarded for reaching a certain amount)
+li $v0, 4
+la $a0, IntroFinalScore
+syscall
+
+BonusPoints: #This section awards the bonus points for reaching 50 points or higher
+bge $s3, 50, AddOne
+bge $s4, 50, AddTwo
+j EndGame
+
+AddOne: #players who have met the condition can have their registers added with additional points
+addi $s3, $s3, 50
+j EndGame
+AddTwo:
+addi $s4, $s4, 50
+
+EndGame: #We print out the final score after bonus points have been awarded, print that the game is over and end the code
+li $v0,1
+la $a0, ($s3)
+syscall
+
+li $v0, 4
+la $a0, FinalScoreFinale
+syscall
+
+li $v0,1
+la $a0, ($s4)
+syscall
+
+li $v0, 4
+la $a0, GameOver
+syscall
+
+li $v0, 10
+syscall #end the code
